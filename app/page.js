@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { firestore, storage } from '../lib/firebaseConfig';
+import { firestore, storage } from '@/lib/FirebaseConfig';
 import { collection, addDoc, getDocs } from 'firebase/firestore';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { ThemeProvider, createTheme } from '@mui/material/styles';

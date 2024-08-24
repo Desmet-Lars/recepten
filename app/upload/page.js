@@ -1,34 +1,38 @@
 // pages/upload.js
 'use client'
 import { useState } from 'react';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from '../lib/FirebaseConfig';
+import axios from 'axios';
 import { useForm } from 'react-hook-form';
 
 export default function Upload() {
-  const { register, handleSubmit } = useForm();
-  const [image, setImage] = useState(null);
-  const [imageURL, setImageURL] = useState("");
+    const { register, handleSubmit } = useForm();
+    const [file, setFile] = useState(null);
+    const [pdfUrl, setPdfUrl] = useState('');
 
-  const onSubmit = async (data) => {
-    if (image) {
-      const storageRef = ref(storage, `recipes/${image.name}`);
-      await uploadBytes(storageRef, image);
-      const url = await getDownloadURL(storageRef);
+    const onSubmit = async (data) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('title', data.title);
+        formData.append('ingredient', data.ingredient);
 
-      // Verwerk hier je gegevens (bijvoorbeeld verzenden naar een server of opslaan in Firestore)
-      console.log('Image URL:', url);
-      console.log('Recipe Title:', data.title);
-      console.log('Main Ingredient:', data.ingredient);
-    }
-  };
+        try {
+            const response = await axios.post('/api/upload-pdf', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
 
-  return (
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <input type="text" placeholder="Recipe Title" {...register('title')} required />
-        <input type="text" placeholder="Main Ingredient" {...register('ingredient')} required />
-        <input type="file" onChange={(e) => setImage(e.target.files[0])} required />
-        <button type="submit">Upload Recipe</button>
-      </form>
-  );
+            setPdfUrl(response.data.url);
+        } catch (error) {
+            console.error('Error uploading file:', error);
+        }
+    };
+
+    return (
+        <form onSubmit={handleSubmit(onSubmit)}>
+            <input type="text" placeholder="PDF Title" {...register('title')} required />
+            <input type="text" placeholder="Main Ingredient" {...register('ingredient')} required />
+            <input type="file" onChange={(e) => setFile(e.target.files[0])} accept=".pdf" required />
+            <button type="submit">Upload PDF</button>
+            {pdfUrl && <a href={pdfUrl} target="_blank" rel="noopener noreferrer">View Uploaded PDF</a>}
+        </form>
+    );
 }

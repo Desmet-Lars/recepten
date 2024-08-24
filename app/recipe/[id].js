@@ -1,31 +1,42 @@
-// pages/recipe/[name].js
+// pages/recipe/[id].js
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
-import { ref, getDownloadURL } from 'firebase/storage';
-import { storage } from '../../lib/firebaseConfig';
+import { doc, getDoc } from 'firebase/firestore';
+import { firestore } from '../../lib/firebaseConfig';
 
 export default function RecipeDetail() {
     const router = useRouter();
-    const { name } = router.query;
-    const [imageURL, setImageURL] = useState('');
+    const { id } = router.query;
+    const [recipe, setRecipe] = useState(null);
 
     useEffect(() => {
-        if (name) {
-            const fetchImage = async () => {
-                const imageRef = ref(storage, `recipes/${name}`);
-                const url = await getDownloadURL(imageRef);
-                setImageURL(url);
+        if (id) {
+            const fetchRecipe = async () => {
+                try {
+                    const docRef = doc(firestore, 'recipes', id);
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) {
+                        setRecipe(docSnap.data());
+                    } else {
+                        console.error('No such document!');
+                    }
+                } catch (error) {
+                    console.error('Error fetching recipe:', error);
+                }
             };
 
-            fetchImage();
+            fetchRecipe();
         }
-    }, [name]);
+    }, [id]);
+
+    if (!recipe) return <p>Loading...</p>;
 
     return (
         <div>
-            <h1>{name}</h1>
-            <img src={imageURL} alt={name} width="300" />
-            {/* Hier kun je nog meer informatie over het recept toevoegen */}
+            <h1>{recipe.title}</h1>
+            <img src={recipe.imageUrls[0]} alt={recipe.title} width="300" />
+            <p>Main Ingredient: {recipe.ingredient}</p>
+            {/* Voeg hier meer details toe */}
         </div>
     );
 }

@@ -1,9 +1,9 @@
-// pages/api/upload-pdf.js
+// pages/api/page.js
 import formidable from 'formidable';
 import fs from 'fs';
 import path from 'path';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage, firestore } from '../../lib/firebaseConfig';
+import { storage, firestore } from '../../../lib/FirebaseConfig';
 import { collection, addDoc } from 'firebase/firestore';
 
 export const config = {

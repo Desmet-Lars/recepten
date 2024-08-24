@@ -115,7 +115,7 @@ export default function Home() {
                 <Container maxWidth="md">
                     <Paper elevation={3} sx={{ p: 4 }}>
                         <Typography variant="h4" gutterBottom color="primary">
-                            Upload PDF
+                            Upload Recept
                         </Typography>
                         <form onSubmit={handleSubmit(onSubmit)}>
                             <TextField
@@ -139,7 +139,7 @@ export default function Home() {
                                 component="label"
                                 sx={{ mt: 2 }}
                             >
-                                Choose File
+                                Kies File
                                 <input
                                     type="file"
                                     accept=".pdf"
@@ -149,7 +149,7 @@ export default function Home() {
                             </Button>
                             {file && (
                                 <Typography variant="body1" marginTop={2}>
-                                    Selected file: {file.name}
+                                    Geselecteerde pdf: {file.name}
                                 </Typography>
                             )}
                             <Button
@@ -184,7 +184,7 @@ export default function Home() {
                     </Paper>
 
                     <Typography variant="h5" gutterBottom sx={{ mt: 6 }} color="primary">
-                        PDF Dashboard
+                        Recepten Dashboard
                     </Typography>
                     {loading ? (
                         <Box display="flex" justifyContent="center" sx={{ mt: 2 }}>

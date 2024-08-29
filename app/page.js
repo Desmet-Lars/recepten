@@ -66,6 +66,7 @@ export default function Home() {
                         title: data.title,
                         ingredient: data.ingredient,
                         url,
+                        comments: []
                     });
 
                     setPdfUrl(url);
@@ -146,7 +147,7 @@ export default function Home() {
                                 component="label"
                                 sx={{ mt: 2 }}
                             >
-                                Kies File
+                                Kies PDF
                                 <input
                                     type="file"
                                     accept=".pdf"
@@ -170,7 +171,7 @@ export default function Home() {
                             </Button>
                             {pdfUrl && (
                                 <Typography variant="body2" sx={{ mt: 2 }}>
-                                    <a href={pdfUrl} target="_blank" rel="noopener noreferrer">View Uploaded PDF</a>
+                                    <a href={pdfUrl} target="_blank" rel="noopener noreferrer">Zie pdf</a>
                                 </Typography>
                             )}
                         </form>
@@ -215,8 +216,9 @@ export default function Home() {
                                     <Card sx={{ boxShadow: 2, '&:hover': { boxShadow: 6 } }}>
                                         <CardContent>
                                             <Typography variant="h6" noWrap>
-                                                <a href={pdf.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: theme.palette.primary.main }}>{pdf.title}</a>
-                                            </Typography>
+                <a href={`/pdf/${pdf.id}`} style={{ textDecoration: 'none', color: theme.palette.primary.main }}>
+                    {pdf.title}
+                </a>                                            </Typography>
                                             <Typography variant="body2" color="textSecondary">
                                                 Main Ingredient: {pdf.ingredient}
                                             </Typography>

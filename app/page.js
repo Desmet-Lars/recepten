@@ -36,6 +36,7 @@ export default function Home() {
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [previewUrl, setPreviewUrl] = useState('');
+    const [searchQuery, setSearchQuery] = useState(''); // Search state
 
     const onSubmit = async (data) => {
         if (!file) {
@@ -108,6 +109,12 @@ export default function Home() {
             return () => URL.revokeObjectURL(objectUrl); // Clean up
         }
     }, [file]);
+
+    // Function to filter PDFs based on search query
+    const filteredPdfs = pdfs.filter(pdf =>
+        pdf.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        pdf.ingredient.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
     return (
         <ThemeProvider theme={theme}>
@@ -183,6 +190,17 @@ export default function Home() {
                         )}
                     </Paper>
 
+                    <Paper elevation={3} sx={{ p: 4, mt: 6 }}>
+                        <TextField
+                            fullWidth
+                            variant="outlined"
+                            label="Search by Title or Ingredient"
+                            margin="normal"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </Paper>
+
                     <Typography variant="h5" gutterBottom sx={{ mt: 6 }} color="primary">
                         Recepten Dashboard
                     </Typography>
@@ -192,7 +210,7 @@ export default function Home() {
                         </Box>
                     ) : (
                         <Grid container spacing={3}>
-                            {pdfs.map((pdf) => (
+                            {filteredPdfs.map((pdf) => (
                                 <Grid item xs={12} sm={6} md={4} key={pdf.id}>
                                     <Card sx={{ boxShadow: 2, '&:hover': { boxShadow: 6 } }}>
                                         <CardContent>

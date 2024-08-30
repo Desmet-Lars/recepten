@@ -1,4 +1,4 @@
-'use client'
+'use client';
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { firestore, storage } from '@/lib/FirebaseConfig';
@@ -36,7 +36,7 @@ export default function Home() {
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [previewUrl, setPreviewUrl] = useState('');
-    const [searchQuery, setSearchQuery] = useState(''); // Search state
+    const [searchQuery, setSearchQuery] = useState('');
 
     const onSubmit = async (data) => {
         if (!file) {
@@ -46,43 +46,57 @@ export default function Home() {
 
         setUploading(true);
 
-        const storageReference = storageRef(storage, `pdfs/${file.name}`);
-        const uploadTask = uploadBytesResumable(storageReference, file);
+        try {
+            const url = await uploadFile(file);
+            await savePdfData(data, url);
+            alert('File uploaded successfully');
+            resetForm();
+            fetchPdfs();
+        } catch (error) {
+            alert('An error occurred. Please try again.');
+        } finally {
+            setUploading(false);
+        }
+    };
 
-        uploadTask.on('state_changed',
-            (snapshot) => {
-                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                console.log('Upload is ' + progress + '% done');
-            },
-            (error) => {
-                console.error('Error uploading file:', error);
-                alert('Failed to upload file. Please try again.');
-                setUploading(false);
-            },
-            async () => {
-                try {
-                    const url = await getDownloadURL(uploadTask.snapshot.ref);
-                    await addDoc(collection(firestore, 'pdfs'), {
-                        title: data.title,
-                        ingredient: data.ingredient,
-                        url,
-                        comments: []
-                    });
+    const uploadFile = (file) => {
+        return new Promise((resolve, reject) => {
+            const storageReference = storageRef(storage, `pdfs/${file.name}`);
+            const uploadTask = uploadBytesResumable(storageReference, file);
 
-                    setPdfUrl(url);
-                    alert('File uploaded successfully');
-                    reset(); // Reset form fields
-                    setFile(null); // Clear file state
-                    setPreviewUrl(''); // Clear preview URL
-                    fetchPdfs(); // Refresh list of PDFs
-                } catch (error) {
-                    console.error('Error saving metadata:', error);
-                    alert('Failed to save file metadata. Please try again.');
-                } finally {
-                    setUploading(false);
+            uploadTask.on(
+                'state_changed',
+                (snapshot) => {
+                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    console.log('Upload is ' + progress + '% done');
+                },
+                (error) => reject(error),
+                async () => {
+                    try {
+                        const url = await getDownloadURL(uploadTask.snapshot.ref);
+                        resolve(url);
+                    } catch (error) {
+                        reject(error);
+                    }
                 }
-            }
-        );
+            );
+        });
+    };
+
+    const savePdfData = async (data, url) => {
+        await addDoc(collection(firestore, 'pdfs'), {
+            title: data.title,
+            ingredient: data.ingredient,
+            url,
+            comments: [],
+            rating: data.rating, // Capture rating correctly
+        });
+    };
+
+    const resetForm = () => {
+        reset();
+        setFile(null);
+        setPreviewUrl('');
     };
 
     const fetchPdfs = async () => {
@@ -111,8 +125,7 @@ export default function Home() {
         }
     }, [file]);
 
-    // Function to filter PDFs based on search query
-    const filteredPdfs = pdfs.filter(pdf =>
+    const filteredPdfs = pdfs.filter((pdf) =>
         pdf.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         pdf.ingredient.toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -123,7 +136,7 @@ export default function Home() {
                 <Container maxWidth="md">
                     <Paper elevation={3} sx={{ p: 4 }}>
                         <Typography variant="h4" gutterBottom color="primary">
-                            Upload Recept
+                            Upload Recipe
                         </Typography>
                         <form onSubmit={handleSubmit(onSubmit)}>
                             <TextField
@@ -142,12 +155,20 @@ export default function Home() {
                                 {...register('ingredient')}
                                 required
                             />
+                            <TextField
+                                fullWidth
+                                margin="normal"
+                                label="Rating"
+                                variant="outlined"
+                                {...register('rating')}
+                                required
+                            />
                             <Button
                                 variant="contained"
                                 component="label"
                                 sx={{ mt: 2 }}
                             >
-                                Kies PDF
+                                Choose PDF
                                 <input
                                     type="file"
                                     accept=".pdf"
@@ -157,7 +178,7 @@ export default function Home() {
                             </Button>
                             {file && (
                                 <Typography variant="body1" marginTop={2}>
-                                    Geselecteerde pdf: {file.name}
+                                    Selected PDF: {file.name}
                                 </Typography>
                             )}
                             <Button
@@ -171,7 +192,7 @@ export default function Home() {
                             </Button>
                             {pdfUrl && (
                                 <Typography variant="body2" sx={{ mt: 2 }}>
-                                    <a href={pdfUrl} target="_blank" rel="noopener noreferrer">Zie pdf</a>
+                                    <a href={pdfUrl} target="_blank" rel="noopener noreferrer">View PDF</a>
                                 </Typography>
                             )}
                         </form>
@@ -203,7 +224,7 @@ export default function Home() {
                     </Paper>
 
                     <Typography variant="h5" gutterBottom sx={{ mt: 6 }} color="primary">
-                        Recepten Dashboard
+                        Recipe Dashboard
                     </Typography>
                     {loading ? (
                         <Box display="flex" justifyContent="center" sx={{ mt: 2 }}>
@@ -216,12 +237,14 @@ export default function Home() {
                                     <Card sx={{ boxShadow: 2, '&:hover': { boxShadow: 6 } }}>
                                         <CardContent>
                                             <Typography variant="h6" noWrap>
-                <a href={`/pdf/${pdf.id}`} style={{ textDecoration: 'none', color: theme.palette.primary.main }}>
-                    {pdf.title}
-                </a>                                            </Typography>
+                                                <a href={`/pdf/${pdf.id}`} style={{ textDecoration: 'none', color: theme.palette.primary.main }}>
+                                                    {pdf.title}
+                                                </a>
+                                            </Typography>
                                             <Typography variant="body2" color="textSecondary">
                                                 Main Ingredient: {pdf.ingredient}
                                             </Typography>
+                                            <Typography variant='body2' color="textSecondary">Score: {pdf.rating}</Typography>
                                         </CardContent>
                                     </Card>
                                 </Grid>

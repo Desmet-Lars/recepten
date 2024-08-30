@@ -93,8 +93,15 @@ export default function PdfViewer() {
                                 <iframe
                                     src={pdf.url}
                                     title="PDF Viewer"
-                                    style={{ width: '100%', height: '80vh', border: 'none' }}
+                                    style={{
+                                        width: '100%',
+                                        height: '80vh', // You can adjust this to a different value if necessary
+                                        border: 'none',
+                                        overflow: 'auto', // Allow scrolling within the iframe
+                                    }}
+                                    scrolling="yes"
                                 />
+
                                 <Box sx={{ mt: 4 }}>
                                     <Typography variant="h6" color="secondary">Voeg commentaar</Typography>
                                     <TextField

@@ -95,12 +95,12 @@ export default function PdfViewer() {
                                     title="PDF Viewer"
                                     style={{
                                         width: '100%',
-                                        height: '80vh', // You can adjust this to a different value if necessary
+                                        height: '80vh', // Adjust as needed
                                         border: 'none',
-                                        overflow: 'auto', // Allow scrolling within the iframe
+                                        overflow: 'auto', // Enable scrolling within the iframe
                                     }}
-                                    scrolling="yes"
                                 />
+
 
                                 <Box sx={{ mt: 4 }}>
                                     <Typography variant="h6" color="secondary">Voeg commentaar</Typography>

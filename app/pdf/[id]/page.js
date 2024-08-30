@@ -95,7 +95,7 @@ export default function PdfViewer() {
                                     title="PDF Viewer"
                                     style={{
                                         width: '100%',
-                                        height: '80vh', // Adjust as needed
+                                        height: '120vh', // Adjust as needed
                                         border: 'none',
                                         overflow: 'auto', // Enable scrolling within the iframe
                                     }}

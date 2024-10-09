@@ -1,11 +1,11 @@
-'use client';
+'use client'
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { firestore, storage } from '@/lib/FirebaseConfig';
 import { collection, addDoc, getDocs } from 'firebase/firestore';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { Container, TextField, Button, Typography, CircularProgress, Card, CardContent, CardMedia, Grid, Box, Paper } from '@mui/material';
+import { Container, TextField, Button, Typography, CircularProgress, Card, CardContent, CardMedia, Grid, Box, Paper, RadioGroup, FormControlLabel, Radio, FormControl, FormLabel, MenuItem, Select, InputLabel, FormControl as FormControlMUI } from '@mui/material';
 
 // Define a custom theme
 const theme = createTheme({
@@ -28,8 +28,19 @@ const theme = createTheme({
     },
 });
 
+// Function to get color based on rating
+const getRatingColor = (rating) => {
+    if (rating >= 3) {
+        return 'green';  // High rating (3 or above)
+    } else if (rating >= 2) {
+        return 'yellow'; // Medium rating (2.5 - 3.9)
+    } else {
+        return 'red';    // Low rating (below 2.5)
+    }
+};
+
 export default function Home() {
-    const { register, handleSubmit, reset } = useForm();
+    const { register, handleSubmit, reset, setValue } = useForm();
     const [file, setFile] = useState(null);
     const [pdfUrl, setPdfUrl] = useState('');
     const [pdfs, setPdfs] = useState([]);
@@ -37,6 +48,8 @@ export default function Home() {
     const [uploading, setUploading] = useState(false);
     const [previewUrl, setPreviewUrl] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+    const [rating, setRating] = useState('3'); // Default rating
+    const [sortBy, setSortBy] = useState('title'); // Default sort by 'title'
 
     const onSubmit = async (data) => {
         if (!file) {
@@ -48,7 +61,7 @@ export default function Home() {
 
         try {
             const url = await uploadFile(file);
-            await savePdfData(data, url);
+            await savePdfData({ ...data, rating }, url);  // Add rating to data
             alert('File uploaded successfully');
             resetForm();
             fetchPdfs();
@@ -125,15 +138,28 @@ export default function Home() {
         }
     }, [file]);
 
+    // Filter the PDFs based on the search query
     const filteredPdfs = pdfs.filter((pdf) =>
         pdf.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         pdf.ingredient.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    // Sort the PDFs based on the selected sort criterion
+    const sortedPdfs = [...filteredPdfs].sort((a, b) => {
+        if (sortBy === 'title') {
+            return a.title.localeCompare(b.title);
+        } else if (sortBy === 'rating') {
+            return b.rating - a.rating; // Descending order for ratings (higher first)
+        }
+        return 0;
+    });
+
     return (
         <ThemeProvider theme={theme}>
             <Box sx={{ bgcolor: '#f5f5f5', minHeight: '100vh', py: 6 }}>
                 <Container maxWidth="md">
+
+                    {/* Upload Form */}
                     <Paper elevation={3} sx={{ p: 4 }}>
                         <Typography variant="h4" gutterBottom color="primary">
                             Upload Recipe
@@ -147,6 +173,7 @@ export default function Home() {
                                 {...register('title')}
                                 required
                             />
+
                             <TextField
                                 fullWidth
                                 margin="normal"
@@ -155,14 +182,20 @@ export default function Home() {
                                 {...register('ingredient')}
                                 required
                             />
-                            <TextField
-                                fullWidth
-                                margin="normal"
-                                label="Rating"
-                                variant="outlined"
-                                {...register('rating')}
-                                required
-                            />
+                            {/* Radio Group for Rating */}
+                            <FormControl component="fieldset" sx={{ mt: 0 }}>
+                                <FormLabel component="legend">Rating</FormLabel>
+                                <RadioGroup
+                                    row
+                                    value={rating}
+                                    onChange={(e) => setRating(e.target.value)} // Update the rating
+                                >
+                                    <FormControlLabel value="1" control={<Radio sx={{ color: getRatingColor(1) }} />} label="1" />
+                                    <FormControlLabel value="2" control={<Radio sx={{ color: getRatingColor(2) }} />} label="2" />
+                                    <FormControlLabel value="3" control={<Radio sx={{ color: getRatingColor(3) }} />} label="3" />
+                                </RadioGroup>
+                            </FormControl>
+
                             <Button
                                 variant="contained"
                                 component="label"
@@ -212,17 +245,22 @@ export default function Home() {
                         )}
                     </Paper>
 
-                    <Paper elevation={3} sx={{ p: 4, mt: 6 }}>
-                        <TextField
-                            fullWidth
-                            variant="outlined"
-                            label="Search by Title or Ingredient"
-                            margin="normal"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                    </Paper>
+                    {/* Sort By Dropdown */}
+                    <Box sx={{ mt: 4 }}>
+                        <FormControlMUI fullWidth>
+                            <InputLabel>Sort By</InputLabel>
+                            <Select
+                                value={sortBy}
+                                onChange={(e) => setSortBy(e.target.value)}
+                                label="Sort By"
+                            >
+                                <MenuItem value="title">Title</MenuItem>
+                                <MenuItem value="rating">Rating</MenuItem>
+                            </Select>
+                        </FormControlMUI>
+                    </Box>
 
+                    {/* Display PDFs */}
                     <Typography variant="h5" gutterBottom sx={{ mt: 6 }} color="primary">
                         Recipe Dashboard
                     </Typography>
@@ -232,7 +270,7 @@ export default function Home() {
                         </Box>
                     ) : (
                         <Grid container spacing={3}>
-                            {filteredPdfs.map((pdf) => (
+                            {sortedPdfs.map((pdf) => (
                                 <Grid item xs={12} sm={6} md={4} key={pdf.id}>
                                     <Card sx={{ boxShadow: 2, '&:hover': { boxShadow: 6 } }}>
                                         <CardContent>
@@ -244,7 +282,21 @@ export default function Home() {
                                             <Typography variant="body2" color="textSecondary">
                                                 Main Ingredient: {pdf.ingredient}
                                             </Typography>
-                                            <Typography variant='body2' color="textSecondary">Score: {pdf.rating}</Typography>
+
+                                            {/* Display colored rating */}
+                                            <Typography
+                                                variant="body2"
+                                                sx={{
+                                                    color: '#fff',
+                                                    backgroundColor: getRatingColor(pdf.rating),
+                                                    borderRadius: '4px',
+                                                    display: 'inline-block',
+                                                    padding: '4px 8px',
+                                                    marginTop: '8px',
+                                                }}
+                                            >
+                                                { " " }
+                                            </Typography>
                                         </CardContent>
                                     </Card>
                                 </Grid>

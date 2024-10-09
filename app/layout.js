@@ -1,8 +1,10 @@
-import { Inter } from "next/font/google";
-import "./globals.css";
-import { Analytics } from "@vercel/analytics/react"
+import { Inter } from 'next/font/google';
+import './globals.css';
+import { Analytics } from '@vercel/analytics/react';
+import { GlobalWorkerOptions } from 'pdfjs-dist';
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ['latin'] });
+
 
 export const metadata = {
   title: "Recepten",
@@ -10,10 +12,13 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }) {
+
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
-      <Analytics></Analytics>
+      <body className={inter.className}>
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }

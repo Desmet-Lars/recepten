@@ -6,7 +6,6 @@ import { firestore } from '@/lib/FirebaseConfig';
 import { doc, getDoc, collection, addDoc, getDocs } from 'firebase/firestore';
 import { Container, Typography, Button, TextField, Box, Card, CardContent, CircularProgress } from '@mui/material';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { Document, Page } from 'react-pdf';
 
 // Define a custom theme (you can customize this as needed)
 const theme = createTheme({
@@ -39,6 +38,7 @@ export default function PdfViewer() {
                     if (pdfDoc.exists()) {
                         const pdfData = pdfDoc.data();
                         setPdf(pdfData);
+                        console.log(pdfData.url)
 
                         const commentsSnapshot = await getDocs(collection(firestore, 'pdfs', id, 'comments'));
                         const commentsList = commentsSnapshot.docs.map(doc => doc.data());
@@ -91,22 +91,16 @@ export default function PdfViewer() {
                                 <Typography variant="h4" gutterBottom color="primary">
                                     {pdf.title}
                                 </Typography>
-                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                    <Document
-                                        file={pdf}
-                                        onLoadSuccess={onDocumentLoadSuccess}
-                                        options={{ cMapUrl: 'cmaps/', cMapPacked: true }}
-                                    >
-                                        <Page pageNumber={pageNumber} />
-                                    </Document>
-                                    <Box sx={{ mt: 2 }}>
-                                        {numPages && (
-                                            <Typography variant="body1">
-                                                Page {pageNumber} of {numPages}
-                                            </Typography>
-                                        )}
-                                    </Box>
-                                </Box>
+                                <iframe
+                                    src={pdf.url}
+                                    title="PDF Viewer"
+                                    style={{
+                                        width: '100%',
+                                        height: '120vh', // Adjust as needed
+                                        border: 'none',
+                                        overflow: 'auto', // Enable scrolling within the iframe
+                                    }}
+                                />
 
 
                                 <Box sx={{ mt: 4 }}>

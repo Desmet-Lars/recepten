@@ -20,6 +20,7 @@ const theme = createTheme({
     typography: {
         fontFamily: 'Roboto, sans-serif',
     },
+
 });
 
 export default function PdfViewer() {
@@ -99,7 +100,12 @@ export default function PdfViewer() {
                                         height: '120vh', // Adjust as needed
                                         border: 'none',
                                         overflow: 'auto', // Enable scrolling within the iframe
+                                        '@media (max-width: 600px)': {
+                                            height: '240vh', // Increase height for mobile to show 2 pages
+                                          },
+
                                     }}
+
                                 />
 
 

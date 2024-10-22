@@ -10,9 +10,11 @@ export default async function middleware(req: NextRequest) {
     const country = req.geo?.country || req.headers.get('x-vercel-ip-country')
     // Here you can add the list of countries you want to allow, I have added IN and US for now
     if (!['NL','BE'].includes(country ?? '')) {
+        console.log("Not Acces Granted")
       // Redirect to the international page if the country is not IN or US
       return NextResponse.redirect(new URL('/international', req.url))
     }
+    console.log("Access Granted")
   }
   return res
 }

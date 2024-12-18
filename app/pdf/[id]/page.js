@@ -118,11 +118,11 @@ export default function PdfViewer() {
         if (newComment.trim()) {
             try {
                 const timestamp = new Date();
-                await addDoc(collection(firestore, pdf.ref.parent.path, id, 'comments'), {
+                const docRef = await addDoc(collection(firestore, pdf.ref.parent.path, id, 'comments'), {
                     text: newComment,
                     timestamp
                 });
-                setComments([{ text: newComment, timestamp }, ...comments]);
+                setComments([{ text: newComment, timestamp, id: docRef.id }, ...comments]);
                 setNewComment('');
             } catch (error) {
                 console.error('Error adding comment:', error);

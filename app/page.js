@@ -83,6 +83,10 @@ export default function Home() {
     const [searchQuery, setSearchQuery] = useState('');
     const [rating, setRating] = useState('3');
     const [sortBy, setSortBy] = useState('title');
+    const [uploadType, setUploadType] = useState('normal');
+    const [thermomixFile, setThermomixFile] = useState(null);
+    const [thermomixPreviewUrl, setThermomixPreviewUrl] = useState('');
+    const [thermomixPdfs, setThermomixPdfs] = useState([]);
 
     const onSubmit = async (data) => {
         if (!file) {
@@ -101,6 +105,28 @@ export default function Home() {
         } catch (error) {
             console.error('Upload error:', error);
             alert('Failed to upload recipe. Please try again.');
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const onThermomixSubmit = async (data) => {
+        if (!thermomixFile) {
+            alert('Please select a file');
+            return;
+        }
+
+        setUploading(true);
+
+        try {
+            const url = await uploadFile(thermomixFile);
+            await saveThermomixData({ ...data, rating }, url);
+            alert('Thermomix recipe uploaded successfully!');
+            resetThermomixForm();
+            fetchThermomixPdfs();
+        } catch (error) {
+            console.error('Upload error:', error);
+            alert('Failed to upload Thermomix recipe. Please try again.');
         } finally {
             setUploading(false);
         }
@@ -141,10 +167,28 @@ export default function Home() {
         });
     };
 
+    const saveThermomixData = async (data, url) => {
+        await addDoc(collection(firestore, 'thermomix'), {
+            title: data.title.trim(),
+            ingredient: data.ingredient.trim(),
+            url,
+            comments: [],
+            rating: Number(data.rating),
+            createdAt: new Date().toISOString()
+        });
+    };
+
     const resetForm = () => {
         reset();
         setFile(null);
         setPreviewUrl('');
+        setRating('3');
+    };
+
+    const resetThermomixForm = () => {
+        reset();
+        setThermomixFile(null);
+        setThermomixPreviewUrl('');
         setRating('3');
     };
 
@@ -166,8 +210,27 @@ export default function Home() {
         }
     };
 
+    const fetchThermomixPdfs = async () => {
+        setLoading(true);
+        try {
+            const snapshot = await getDocs(collection(firestore, 'thermomix'));
+            const thermomixPdfsList = snapshot.docs.map((doc) => ({
+                id: doc.id,
+                ...doc.data(),
+                rating: Number(doc.data().rating) // Ensure rating is a number
+            }));
+            setThermomixPdfs(thermomixPdfsList);
+        } catch (error) {
+            console.error('Error fetching Thermomix recipes:', error);
+            alert('Failed to load Thermomix recipes. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         fetchPdfs();
+        fetchThermomixPdfs();
     }, []);
 
     useEffect(() => {
@@ -178,8 +241,21 @@ export default function Home() {
         }
     }, [file]);
 
+    useEffect(() => {
+        if (thermomixFile) {
+            const objectUrl = URL.createObjectURL(thermomixFile);
+            setThermomixPreviewUrl(objectUrl);
+            return () => URL.revokeObjectURL(objectUrl);
+        }
+    }, [thermomixFile]);
+
     // Filter PDFs based on search query
     const filteredPdfs = pdfs.filter((pdf) =>
+        pdf.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        pdf.ingredient.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    const filteredThermomixPdfs = thermomixPdfs.filter((pdf) =>
         pdf.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         pdf.ingredient.toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -194,112 +270,254 @@ export default function Home() {
         return 0;
     });
 
+    const sortedThermomixPdfs = [...filteredThermomixPdfs].sort((a, b) => {
+        if (sortBy === 'title') {
+            return a.title.localeCompare(b.title);
+        } else if (sortBy === 'rating') {
+            return b.rating - a.rating;
+        }
+        return 0;
+    });
+
     return (
         <ThemeProvider theme={theme}>
             <Box sx={{ bgcolor: 'background.default', minHeight: '100vh', py: 6 }}>
                 <Container maxWidth="lg">
-                    {/* Upload Form */}
+                    {/* Upload Type Selection */}
                     <Paper elevation={3} sx={{ p: 4, mb: 4, borderRadius: '16px' }}>
                         <Typography variant="h4" color="primary" align="center">
-                            Upload New Recipe
+                            Choose Upload Type
                         </Typography>
-                        <form onSubmit={handleSubmit(onSubmit)}>
-                            <TextField
-                                fullWidth
-                                margin="normal"
-                                label="Recipe Title"
-                                variant="outlined"
-                                {...register('title')}
-                                required
-                                sx={{ mb: 2 }}
-                            />
-
-                            <TextField
-                                fullWidth
-                                margin="normal"
-                                label="Main Ingredient"
-                                variant="outlined"
-                                {...register('ingredient')}
-                                required
-                                sx={{ mb: 2 }}
-                            />
-
-                            <FormControl component="fieldset" sx={{ mb: 3, width: '100%' }}>
-                                <FormLabel component="legend">Recipe Rating</FormLabel>
-                                <RadioGroup
-                                    row
-                                    value={rating}
-                                    onChange={(e) => setRating(e.target.value)}
-                                    sx={{ justifyContent: 'center' }}
-                                >
-                                    {[1, 2, 3].map((value) => (
-                                        <FormControlLabel
-                                            key={value}
-                                            value={value.toString()}
-                                            control={
-                                                <Radio
-                                                    sx={{
-                                                        color: getRatingColor(value),
-                                                        '&.Mui-checked': {
-                                                            color: getRatingColor(value)
-                                                        }
-                                                    }}
-                                                />
-                                            }
-                                            label={value}
-                                        />
-                                    ))}
-                                </RadioGroup>
-                            </FormControl>
-
-                            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                                <Button
-                                    variant="outlined"
-                                    component="label"
-                                    fullWidth
-                                >
-                                    Choose PDF
-                                    <input
-                                        type="file"
-                                        accept=".pdf"
-                                        hidden
-                                        onChange={(e) => setFile(e.target.files[0])}
-                                    />
-                                </Button>
-                                <Button
-                                    type="submit"
-                                    variant="contained"
-                                    color="primary"
-                                    disabled={uploading}
-                                    fullWidth
-                                >
-                                    {uploading ? <CircularProgress size={24} /> : 'Upload Recipe'}
-                                </Button>
-                            </Box>
-
-                            {file && (
-                                <Typography variant="body1" sx={{ mt: 1, color: 'text.secondary' }}>
-                                    Selected: {file.name}
-                                </Typography>
-                            )}
-                        </form>
-
-                        {previewUrl && (
-                            <Card sx={{ mt: 4, overflow: 'hidden' }}>
-                                <CardContent>
-                                    <Typography variant="h6" color="secondary" gutterBottom>
-                                        Preview
-                                    </Typography>
-                                    <CardMedia
-                                        component="iframe"
-                                        src={previewUrl}
-                                        title="PDF Preview"
-                                        sx={{ height: 500, width: '100%', border: 'none' }}
-                                    />
-                                </CardContent>
-                            </Card>
-                        )}
+                        <FormControl component="fieldset" sx={{ mb: 3, width: '100%' }}>
+                            <RadioGroup
+                                row
+                                value={uploadType}
+                                onChange={(e) => setUploadType(e.target.value)}
+                                sx={{ justifyContent: 'center' }}
+                            >
+                                <FormControlLabel
+                                    value="normal"
+                                    control={<Radio />}
+                                    label="Normal Recipe"
+                                />
+                                <FormControlLabel
+                                    value="thermomix"
+                                    control={<Radio />}
+                                    label="Thermomix Recipe"
+                                />
+                            </RadioGroup>
+                        </FormControl>
                     </Paper>
+
+                    {/* Upload Form */}
+                    {uploadType === 'normal' && (
+                        <Paper elevation={3} sx={{ p: 4, mb: 4, borderRadius: '16px' }}>
+                            <Typography variant="h4" color="primary" align="center">
+                                Upload New Recipe
+                            </Typography>
+                            <form onSubmit={handleSubmit(onSubmit)}>
+                                <TextField
+                                    fullWidth
+                                    margin="normal"
+                                    label="Recipe Title"
+                                    variant="outlined"
+                                    {...register('title')}
+                                    required
+                                    sx={{ mb: 2 }}
+                                />
+
+                                <TextField
+                                    fullWidth
+                                    margin="normal"
+                                    label="Main Ingredient"
+                                    variant="outlined"
+                                    {...register('ingredient')}
+                                    required
+                                    sx={{ mb: 2 }}
+                                />
+
+                                <FormControl component="fieldset" sx={{ mb: 3, width: '100%' }}>
+                                    <FormLabel component="legend">Recipe Rating</FormLabel>
+                                    <RadioGroup
+                                        row
+                                        value={rating}
+                                        onChange={(e) => setRating(e.target.value)}
+                                        sx={{ justifyContent: 'center' }}
+                                    >
+                                        {[1, 2, 3].map((value) => (
+                                            <FormControlLabel
+                                                key={value}
+                                                value={value.toString()}
+                                                control={
+                                                    <Radio
+                                                        sx={{
+                                                            color: getRatingColor(value),
+                                                            '&.Mui-checked': {
+                                                                color: getRatingColor(value)
+                                                            }
+                                                        }}
+                                                    />
+                                                }
+                                                label={value}
+                                            />
+                                        ))}
+                                    </RadioGroup>
+                                </FormControl>
+
+                                <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                                    <Button
+                                        variant="outlined"
+                                        component="label"
+                                        fullWidth
+                                    >
+                                        Choose File
+                                        <input
+                                            type="file"
+                                            accept=".pdf,image/*"
+                                            hidden
+                                            onChange={(e) => setFile(e.target.files[0])}
+                                        />
+                                    </Button>
+                                    <Button
+                                        type="submit"
+                                        variant="contained"
+                                        color="primary"
+                                        disabled={uploading}
+                                        fullWidth
+                                    >
+                                        {uploading ? <CircularProgress size={24} /> : 'Upload Recipe'}
+                                    </Button>
+                                </Box>
+
+                                {file && (
+                                    <Typography variant="body1" sx={{ mt: 1, color: 'text.secondary' }}>
+                                        Selected: {file.name}
+                                    </Typography>
+                                )}
+                            </form>
+
+                            {previewUrl && (
+                                <Card sx={{ mt: 4, overflow: 'hidden' }}>
+                                    <CardContent>
+                                        <Typography variant="h6" color="secondary" gutterBottom>
+                                            Preview
+                                        </Typography>
+                                        <CardMedia
+                                            component="iframe"
+                                            src={previewUrl}
+                                            title="PDF Preview"
+                                            sx={{ height: 500, width: '100%', border: 'none' }}
+                                        />
+                                    </CardContent>
+                                </Card>
+                            )}
+                        </Paper>
+                    )}
+
+                    {/* Thermomix Upload Form */}
+                    {uploadType === 'thermomix' && (
+                        <Paper elevation={3} sx={{ p: 4, mb: 4, borderRadius: '16px' }}>
+                            <Typography variant="h4" color="primary" align="center">
+                                Upload New Thermomix Recipe
+                            </Typography>
+                            <form onSubmit={handleSubmit(onThermomixSubmit)}>
+                                <TextField
+                                    fullWidth
+                                    margin="normal"
+                                    label="Recipe Title"
+                                    variant="outlined"
+                                    {...register('title')}
+                                    required
+                                    sx={{ mb: 2 }}
+                                />
+
+                                <TextField
+                                    fullWidth
+                                    margin="normal"
+                                    label="Main Ingredient"
+                                    variant="outlined"
+                                    {...register('ingredient')}
+                                    required
+                                    sx={{ mb: 2 }}
+                                />
+
+                                <FormControl component="fieldset" sx={{ mb: 3, width: '100%' }}>
+                                    <FormLabel component="legend">Recipe Rating</FormLabel>
+                                    <RadioGroup
+                                        row
+                                        value={rating}
+                                        onChange={(e) => setRating(e.target.value)}
+                                        sx={{ justifyContent: 'center' }}
+                                    >
+                                        {[1, 2, 3].map((value) => (
+                                            <FormControlLabel
+                                                key={value}
+                                                value={value.toString()}
+                                                control={
+                                                    <Radio
+                                                        sx={{
+                                                            color: getRatingColor(value),
+                                                            '&.Mui-checked': {
+                                                                color: getRatingColor(value)
+                                                            }
+                                                        }}
+                                                    />
+                                                }
+                                                label={value}
+                                            />
+                                        ))}
+                                    </RadioGroup>
+                                </FormControl>
+
+                                <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                                    <Button
+                                        variant="outlined"
+                                        component="label"
+                                        fullWidth
+                                    >
+                                        Choose File
+                                        <input
+                                            type="file"
+                                            accept=".pdf,image/*"
+                                            hidden
+                                            onChange={(e) => setThermomixFile(e.target.files[0])}
+                                        />
+                                    </Button>
+                                    <Button
+                                        type="submit"
+                                        variant="contained"
+                                        color="primary"
+                                        disabled={uploading}
+                                        fullWidth
+                                    >
+                                        {uploading ? <CircularProgress size={24} /> : 'Upload Recipe'}
+                                    </Button>
+                                </Box>
+
+                                {thermomixFile && (
+                                    <Typography variant="body1" sx={{ mt: 1, color: 'text.secondary' }}>
+                                        Selected: {thermomixFile.name}
+                                    </Typography>
+                                )}
+                            </form>
+
+                            {thermomixPreviewUrl && (
+                                <Card sx={{ mt: 4, overflow: 'hidden' }}>
+                                    <CardContent>
+                                        <Typography variant="h6" color="secondary" gutterBottom>
+                                            Preview
+                                        </Typography>
+                                        <CardMedia
+                                            component="iframe"
+                                            src={thermomixPreviewUrl}
+                                            title="File Preview"
+                                            sx={{ height: 500, width: '100%', border: 'none' }}
+                                        />
+                                    </CardContent>
+                                </Card>
+                            )}
+                        </Paper>
+                    )}
 
                     {/* Search and Sort Controls */}
                     <Box sx={{ display: 'flex', gap: 2, mb: 4 }}>
@@ -328,7 +546,7 @@ export default function Home() {
 
                     {/* Recipe Dashboard */}
                     <Typography variant="h5" color="primary" sx={{ mb: 3 }}>
-                        Recipe Collection
+                        {uploadType === 'normal' ? 'Recipe Collection' : 'Thermomix Recipe Collection'}
                     </Typography>
 
                     {loading ? (
@@ -337,7 +555,7 @@ export default function Home() {
                         </Box>
                     ) : (
                         <Grid container spacing={3}>
-                            {sortedPdfs.map((pdf) => (
+                            {(uploadType === 'normal' ? sortedPdfs : sortedThermomixPdfs).map((pdf) => (
                                 <Grid item xs={12} sm={6} md={4} key={pdf.id}>
                                     <Card
                                         sx={{

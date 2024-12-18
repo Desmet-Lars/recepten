@@ -3,30 +3,37 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { firestore } from '@/lib/FirebaseConfig';
-import { doc, getDoc, collection, addDoc, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, getDocs, deleteDoc } from 'firebase/firestore';
 import { Container, Typography, Button, TextField, Box, Card, CardContent, CircularProgress, Paper, IconButton } from '@mui/material';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 const theme = createTheme({
     palette: {
         primary: {
-            main: '#2196f3',
+            main: '#1976d2',
         },
         secondary: {
             main: '#424242',
         },
         background: {
-            default: '#f5f5f5',
+            default: '#f0f2f5',
         }
     },
     typography: {
         fontFamily: 'Roboto, sans-serif',
         h4: {
-            fontWeight: 600,
+            fontWeight: 700,
         },
         h6: {
             fontWeight: 500,
+        },
+        body1: {
+            fontSize: '1rem',
+        },
+        caption: {
+            fontSize: '0.875rem',
         }
     },
     components: {
@@ -36,12 +43,28 @@ const theme = createTheme({
                     borderRadius: 8,
                     textTransform: 'none',
                     fontWeight: 500,
+                    padding: '10px 20px',
+                    '&:hover': {
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    }
                 }
             }
         },
         MuiCard: {
             styleOverrides: {
                 root: {
+                    borderRadius: 12,
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                    '&:hover': {
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    }
+                }
+            }
+        },
+        MuiPaper: {
+            styleOverrides: {
+                root: {
+                    padding: '20px',
                     borderRadius: 12,
                     boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
                 }
@@ -62,15 +85,19 @@ export default function PdfViewer() {
             const fetchPdfData = async () => {
                 setLoading(true);
                 try {
-                    const pdfDoc = await getDoc(doc(firestore, 'pdfs', id));
+                    let pdfDoc = await getDoc(doc(firestore, 'pdfs', id));
+                    if (!pdfDoc.exists()) {
+                        pdfDoc = await getDoc(doc(firestore, 'thermomix', id));
+                    }
                     if (pdfDoc.exists()) {
                         const pdfData = pdfDoc.data();
-                        setPdf(pdfData);
+                        setPdf({ ...pdfData, ref: pdfDoc.ref });
 
-                        const commentsSnapshot = await getDocs(collection(firestore, 'pdfs', id, 'comments'));
+                        const commentsSnapshot = await getDocs(collection(firestore, pdfDoc.ref.parent.path, id, 'comments'));
                         const commentsList = commentsSnapshot.docs.map(doc => ({
                             ...doc.data(),
-                            id: doc.id
+                            id: doc.id,
+                            timestamp: doc.data().timestamp.toDate() // Convert Firestore Timestamp to JavaScript Date
                         })).sort((a, b) => b.timestamp - a.timestamp);
                         setComments(commentsList);
                     } else {
@@ -91,7 +118,7 @@ export default function PdfViewer() {
         if (newComment.trim()) {
             try {
                 const timestamp = new Date();
-                await addDoc(collection(firestore, 'pdfs', id, 'comments'), {
+                await addDoc(collection(firestore, pdf.ref.parent.path, id, 'comments'), {
                     text: newComment,
                     timestamp
                 });
@@ -101,6 +128,19 @@ export default function PdfViewer() {
                 console.error('Error adding comment:', error);
             }
         }
+    };
+
+    const handleDeleteComment = async (commentId) => {
+        try {
+            await deleteDoc(doc(firestore, pdf.ref.parent.path, id, 'comments', commentId));
+            setComments(comments.filter(comment => comment.id !== commentId));
+        } catch (error) {
+            console.error('Error deleting comment:', error);
+        }
+    };
+
+    const isImage = (url) => {
+        return /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(url);
     };
 
     return (
@@ -121,7 +161,7 @@ export default function PdfViewer() {
                                             color="primary"
                                             sx={{
                                                 bgcolor: 'white',
-                                                '&:hover': { bgcolor: 'rgba(33, 150, 243, 0.08)' }
+                                                '&:hover': { bgcolor: 'rgba(25, 118, 210, 0.08)' }
                                             }}
                                         >
                                             <ArrowBackIcon />
@@ -139,16 +179,28 @@ export default function PdfViewer() {
                                             borderRadius: 2
                                         }}
                                     >
-                                        <iframe
-                                            src={pdf.url}
-                                            title="PDF Viewer"
-                                            style={{
-                                                width: '100%',
-                                                height: '80vh',
-                                                border: 'none',
-                                                display: 'block'
-                                            }}
-                                        />
+                                        {isImage(pdf.url) ? (
+                                            <img
+                                                src={pdf.url}
+                                                alt={pdf.title}
+                                                style={{
+                                                    width: '100%',
+                                                    height: 'auto',
+                                                    display: 'block'
+                                                }}
+                                            />
+                                        ) : (
+                                            <iframe
+                                                src={pdf.url}
+                                                title="PDF Viewer"
+                                                style={{
+                                                    width: '100%',
+                                                    height: '80vh',
+                                                    border: 'none',
+                                                    display: 'block'
+                                                }}
+                                            />
+                                        )}
                                     </Paper>
 
                                     <Box sx={{ mb: 4 }}>
@@ -185,14 +237,21 @@ export default function PdfViewer() {
                                         {comments.length > 0 ? (
                                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                 {comments.map((comment, index) => (
-                                                    <Card key={index}>
+                                                    <Card key={index} sx={{ position: 'relative' }}>
                                                         <CardContent>
                                                             <Typography variant="body1" sx={{ mb: 1 }}>
                                                                 {comment.text}
                                                             </Typography>
                                                             <Typography variant="caption" color="text.secondary">
-                                                                {comment.timestamp.toDate().toLocaleString()}
+                                                                {comment.timestamp.toLocaleString()}
                                                             </Typography>
+                                                            <IconButton
+                                                                color="secondary"
+                                                                onClick={() => handleDeleteComment(comment.id)}
+                                                                sx={{ position: 'absolute', top: 8, right: 8 }}
+                                                            >
+                                                                <DeleteIcon />
+                                                            </IconButton>
                                                         </CardContent>
                                                     </Card>
                                                 ))}
